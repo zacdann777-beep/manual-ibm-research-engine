@@ -14,17 +14,52 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract engine ZIP
+      - name: Validate and extract ZIP
         run: |
-          mkdir -p extracted_engine
-          unzip -o Manual_IBM_FASE_5_GITHUB_ACTIONS.zip -d extracted_engine
-          find extracted_engine -maxdepth 3 -type f
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import PurePosixPath, Path
+
+          archive = Path("Manual_IBM_FASE_5_GITHUB_ACTIONS.zip")
+          expected = "Manual_IBM_3_6_0_MOTOR_INVESTIGACION_CLOUD"
+
+          if not archive.is_file():
+              raise SystemExit("No se encontró el ZIP en la raíz.")
+
+          with zipfile.ZipFile(archive) as z:
+              entries = [i for i in z.infolist() if not i.is_dir()]
+
+              for item in entries:
+                  path = PurePosixPath(item.filename)
+                  if path.is_absolute() or ".." in path.parts:
+                      raise SystemExit("Ruta insegura: " + item.filename)
+                  if not path.parts or path.parts[0] != expected:
+                      raise SystemExit("Estructura inesperada: " + item.filename)
+
+              for item in entries:
+                  relative = PurePosixPath(item.filename).relative_to(expected)
+                  if not relative.parts:
+                      continue
+                  destination = Path(*relative.parts)
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(z.read(item))
+
+          print("Extracción validada y completada.")
+          PY
+
+      - name: Verify extracted files
+        run: |
+          test -f cloud_medical_research/worker.js
+          test -f cloud_medical_research/package.json
+          test -f .github/workflows/research-engine.yml
+          test -f .github/workflows/seed-backlog.yml
+          echo "Archivos principales encontrados."
 
       - name: Commit extracted files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add extracted_engine
-          git commit -m "Extract Manual IBM research engine" || echo "No changes"
+          git add README.md .gitignore .github/workflows/research-engine.yml .github/workflows/seed-backlog.yml cloud_medical_research data
+          git commit -m "Add Manual IBM research engine"
           git push
           
