@@ -1,0 +1,30 @@
+
+name: Extract Manual IBM Engine
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract engine ZIP
+        run: |
+          mkdir -p extracted_engine
+          unzip -o Manual_IBM_FASE_5_GITHUB_ACTIONS.zip -d extracted_engine
+          find extracted_engine -maxdepth 3 -type f
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add extracted_engine
+          git commit -m "Extract Manual IBM research engine" || echo "No changes"
+          git push
+          
